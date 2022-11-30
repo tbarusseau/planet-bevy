@@ -3,6 +3,8 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 
+use super::planet_material::PlanetMaterial;
+
 pub struct SphereMeshPlugin;
 
 impl Plugin for SphereMeshPlugin {
@@ -57,10 +59,13 @@ impl SphereMesh {
     pub fn sys_generate_meshes(
         mut commands: Commands,
         q: Query<(Entity, &SphereMeshComponent), Changed<SphereMeshComponent>>,
+        q_previous_data: Query<&Transform>,
         mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
+        mut materials: ResMut<Assets<PlanetMaterial>>,
     ) {
         for (entity, sphere_mesh_comp) in q.iter() {
+            let previous_data = q_previous_data.get(entity);
+
             // Clean-up previous PbrBundle
             commands.entity(entity).remove::<PbrBundle>();
 
@@ -70,11 +75,18 @@ impl SphereMesh {
             let mesh = sphere_mesh.build_mesh();
 
             // Insert a new PbrBundle
-            commands.entity(entity).insert(PbrBundle {
+            let material = materials.add(PlanetMaterial {});
+            let mut pbr_bundle = MaterialMeshBundle {
                 mesh: meshes.add(mesh),
-                material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+                material: material.clone(),
                 ..Default::default()
-            });
+            };
+
+            if let Ok(transform) = previous_data {
+                pbr_bundle.transform = *transform;
+            }
+
+            commands.entity(entity).insert(pbr_bundle);
         }
     }
 
